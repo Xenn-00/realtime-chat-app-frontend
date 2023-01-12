@@ -1,3 +1,6 @@
+import { ConversationPopulated } from "../../backend/src/util/types";
+
+//  Users
 export interface CreateUsernameData {
   createUsername: {
     success: boolean;
@@ -7,4 +10,34 @@ export interface CreateUsernameData {
 
 export interface CreateUsernameVariables {
   username: string;
+}
+
+export interface SearchUsersInput {
+  username: string;
+}
+
+export interface SearchUsersData {
+  searchUsers: Array<SearchUsers>;
+}
+
+export interface SearchUsers {
+  id: string;
+  username: string;
+  image: string;
+}
+
+// Conversations
+
+export interface ConversationData {
+  conversations: Array<ConversationPopulated>;
+}
+
+export interface CreateConversationData {
+  createConversation: {
+    conversationId: string;
+  };
+}
+
+export interface CreateConversationInput {
+  participantIds: Array<string>;
 }

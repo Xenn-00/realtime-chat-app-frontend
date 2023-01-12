@@ -16,13 +16,13 @@ export default function Home() {
 
   return (
     <Box>
-      <header>
+      {/* <header>
         <Button onClick={toggleColorMode}>
           {colorMode === "light" ? "🌑" : "🌞"}
         </Button>
-      </header>
+      </header> */}
       {session?.user?.username ? (
-        <Chat />
+        <Chat session={session} />
       ) : (
         <Auth session={session} reloadSession={reloadSession} />
       )}
