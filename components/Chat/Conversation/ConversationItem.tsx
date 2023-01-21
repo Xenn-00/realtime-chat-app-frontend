@@ -9,7 +9,7 @@ import {
   Text,
 } from "@chakra-ui/react";
 import { formatRelative } from "date-fns";
-import id from "date-fns/locale/id";
+import enUS from "date-fns/locale/en-US";
 import React, { useState } from "react";
 import { GoPrimitiveDot } from "react-icons/go";
 import { MdDeleteOutline } from "react-icons/md";
@@ -19,8 +19,8 @@ import { ConversationPopulated } from "../../../../backend/src/util/types";
 import { formatUsernames, formatUserImage } from "../../../util/functions";
 
 const formatRelativeLocale = {
-  lastweek: "eeee",
-  yesterday: "'Yesterday'",
+  lastWeek: "eeee 'at' p",
+  yesterday: "'Yesterday at' p",
   today: "p",
   other: "MM/dd/yy",
 };
@@ -30,6 +30,7 @@ interface Props {
   userId: string;
   onClick: () => void;
   isSelected: boolean;
+  hasSeenLatestMessage: boolean | undefined;
 }
 
 function ConversationItem({
@@ -37,6 +38,7 @@ function ConversationItem({
   userId,
   onClick,
   isSelected,
+  hasSeenLatestMessage,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -56,17 +58,22 @@ function ConversationItem({
       justify={"space-between"}
       cursor={"pointer"}
       p={3}
-      bg={conversation.id === isSelected ? "whiteAlpha.200" : "none"}
+      bg={isSelected ? "whiteAlpha.200" : "none"}
       _hover={{ bg: "whiteAlpha.200" }}
       borderRadius={3}
       onClick={handleClick}
       position={"relative"}
     >
+      <Flex>
+        {hasSeenLatestMessage === false && (
+          <GoPrimitiveDot fontSize={"sm"} color="#69f84d" />
+        )}
+      </Flex>
       <Avatar
         src={formatUserImage(conversation.participants, userId)}
         size={"sm"}
       />
-      <Flex justify="space-between" width="80%" height="100%">
+      <Flex justify="space-between" width="80%" height="100%" align={"center"}>
         <Flex direction="column" width="70%" height="100%">
           <Text
             fontWeight={600}
@@ -89,17 +96,17 @@ function ConversationItem({
             </Box>
           )}
         </Flex>
-        {/* <Text color="whiteAlpha.700" textAlign="right">
+        <Text color="whiteAlpha.700" textAlign="right" fontSize={"sm"}>
           {formatRelative(conversation.updatedAt, new Date(), {
             locale: {
-              ...id,
+              ...enUS,
               formatRelative: (token) =>
                 formatRelativeLocale[
                   token as keyof typeof formatRelativeLocale
                 ],
             },
           })}
-        </Text> */}
+        </Text>
       </Flex>
     </Stack>
   );

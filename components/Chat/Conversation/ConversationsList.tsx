@@ -9,7 +9,10 @@ import ConversationModal from "./Modal/Modal";
 interface Props {
   session: Session;
   conversations: Array<ConversationPopulated>;
-  onViewConversation: (conversationId: string) => void;
+  onViewConversation: (
+    conversationId: string,
+    hasSeenLatestMessage: boolean | undefined
+  ) => void;
 }
 
 function ConversationsList({
@@ -27,6 +30,10 @@ function ConversationsList({
     user: { id: userId },
   } = session;
 
+  const sortedConversations = [...conversations].sort(
+    (a, b) => b.updatedAt.valueOf() - a.updatedAt.valueOf()
+  );
+
   return (
     <Box width={"100%"}>
       <Box
@@ -43,15 +50,27 @@ function ConversationsList({
         </Text>
       </Box>
       <ConversationModal session={session} isOpen={isOpen} onClose={onClose} />
-      {conversations.map((conversation) => (
-        <ConversationItem
-          key={conversation.id}
-          conversation={conversation}
-          userId={userId}
-          onClick={() => onViewConversation(conversation.id)}
-          isSelected={conversation.id === router.query.conversationId}
-        />
-      ))}
+      {sortedConversations.map((conversation) => {
+        const participant = conversation.participants.find(
+          (p: any) => p.user.id === userId
+        );
+
+        return (
+          <ConversationItem
+            key={conversation.id}
+            conversation={conversation}
+            userId={userId}
+            onClick={() =>
+              onViewConversation(
+                conversation.id,
+                participant?.hasSeenLatestMessage
+              )
+            }
+            hasSeenLatestMessage={participant?.hasSeenLatestMessage}
+            isSelected={conversation.id === router.query.conversationId}
+          />
+        );
+      })}
     </Box>
   );
 }
