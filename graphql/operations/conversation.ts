@@ -2,6 +2,7 @@ import { gql } from "@apollo/client";
 
 const ConversationFields = `
   id
+  updatedAt
   participants {
     user {
       id
@@ -15,11 +16,11 @@ const ConversationFields = `
     sender {
       id
       username
+      image
     }
     body
     createdAt
   }
-  updateAt
 `;
 
 export default {
@@ -40,12 +41,29 @@ export default {
         }
       }
     `,
+    markConversationAsRead: gql`
+      mutation MarkConversationAsRead(
+        $userId: String!
+        $conversationId: String!
+      ) {
+        markConversationAsRead(userId: $userId, conversationId: $conversationId)
+      }
+    `,
   },
   Subscriptions: {
     conversationCreated: gql`
       subscription ConversationCreated {
         conversationCreated {
           ${ConversationFields}
+        }
+      }
+    `,
+    conversationUpdated: gql`
+      subscription ConversationUpdated {
+        conversationUpdated {
+          conversation {
+            ${ConversationFields}
+          }
         }
       }
     `,
