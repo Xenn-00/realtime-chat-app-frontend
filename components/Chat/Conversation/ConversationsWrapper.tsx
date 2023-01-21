@@ -1,18 +1,30 @@
-import { useQuery } from "@apollo/client";
+import { gql, useMutation, useQuery, useSubscription } from "@apollo/client";
 import { Box } from "@chakra-ui/react";
 import { Session } from "next-auth";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import ConversationsList from "./ConversationsList";
 import ConversationOperations from "../../../graphql/operations/conversation";
-import { ConversationData } from "../../../util/types";
-import { ConversationPopulated } from "../../../../backend/src/util/types";
+import { ConversationData, ConversationUpdatedData } from "../../../util/types";
+import {
+  ConversationPopulated,
+  ParticipantPopulated,
+} from "../../../../backend/src/util/types";
 import { useRouter } from "next/router";
+import SkeletonLoader from "../../common/SkeletonLoader";
 
 interface Props {
   session: Session;
 }
 
 function ConversationsWrapper({ session }: Props) {
+  const router = useRouter();
+  const {
+    query: { conversationId },
+  } = router;
+
+  const {
+    user: { id: userId },
+  } = session;
   const {
     data: conversationsData,
     loading: conversationsLoading,
@@ -22,20 +34,102 @@ function ConversationsWrapper({ session }: Props) {
     ConversationOperations.Queries.conversations
   );
 
-  const router = useRouter();
-  const {
-    query: { conversationId },
-  } = router;
+  const [markConversationAsRead] = useMutation<
+    { markConversationAsRead: boolean },
+    { userId: string; conversationId: string }
+  >(ConversationOperations.Mutations.markConversationAsRead);
 
-  const onViewConversation = async (conversationId: string) => {
-    /* 
-      1. Push the COnversationId to the router query params
-    */
+  useSubscription<ConversationUpdatedData, null>(
+    ConversationOperations.Subscriptions.conversationUpdated,
+    {
+      onData: ({ client, data }) => {
+        const { data: subscriptionData } = data;
+
+        // console.log("On data firing", subscriptionData);
+
+        if (!subscriptionData) return;
+
+        const {
+          conversationUpdated: { conversation: updatedConversation },
+        } = subscriptionData;
+
+        const currentlyViewingConversation =
+          updatedConversation.id === conversationId;
+
+        if (currentlyViewingConversation) {
+          onViewConversation(conversationId, false);
+        }
+      },
+    }
+  );
+
+  const onViewConversation = async function (
+    conversationId: string,
+    hasSeenLatestMessage: boolean | undefined
+  ) {
     router.push({ query: { conversationId } });
 
-    /* 
-      2. Mark the conversation as read
-    */
+    if (hasSeenLatestMessage) return;
+    try {
+      await markConversationAsRead({
+        variables: {
+          userId,
+          conversationId,
+        },
+        optimisticResponse: {
+          markConversationAsRead: true,
+        },
+        update: (cache) => {
+          const participantsFragment = cache.readFragment<{
+            participants: Array<ParticipantPopulated>;
+          }>({
+            id: `Conversation:${conversationId}`,
+            fragment: gql`
+              fragment Participant on Conversation {
+                participants {
+                  user {
+                    id
+                    username
+                    image
+                  }
+                  hasSeenLatestMessage
+                }
+              }
+            `,
+          });
+
+          if (!participantsFragment) return;
+          const participants = [...participantsFragment.participants];
+
+          const userParticipantIdx = participants.findIndex(
+            (p) => p.user.id === userId
+          );
+
+          if (userParticipantIdx === -1) return;
+
+          const userParticipant = participants[userParticipantIdx];
+
+          participants[userParticipantIdx] = {
+            ...userParticipant,
+            hasSeenLatestMessage: true,
+          };
+
+          cache.writeFragment({
+            id: `Conversation:${conversationId}`,
+            fragment: gql`
+              fragment UpdatedParticipant on Conversation {
+                participants
+              }
+            `,
+            data: {
+              participants,
+            },
+          });
+        },
+      });
+    } catch (error) {
+      console.log("onViewConversation error", error);
+    }
   };
 
   const subscriptToNewConversation = () => {
@@ -52,7 +146,6 @@ function ConversationsWrapper({ session }: Props) {
         }
       ) => {
         if (!subscriptionData.data) return prev;
-        console.log("Here is subcription data", subscriptionData);
 
         const newConversation = subscriptionData.data.conversationCreated;
 
@@ -70,16 +163,22 @@ function ConversationsWrapper({ session }: Props) {
   return (
     <Box
       display={{ base: conversationId ? "none" : "flex", md: "flex" }}
+      flexDirection="column"
       width={{ base: "100%", md: "400px" }}
       bg={"whiteAlpha.50"}
+      gap={4}
       py={6}
       px={3}
     >
-      <ConversationsList
-        session={session}
-        conversations={conversationsData?.conversations || []}
-        onViewConversation={onViewConversation}
-      />
+      {conversationsLoading ? (
+        <SkeletonLoader count={6} height="50px" />
+      ) : (
+        <ConversationsList
+          session={session}
+          conversations={conversationsData?.conversations || []}
+          onViewConversation={onViewConversation}
+        />
+      )}
     </Box>
   );
 }
